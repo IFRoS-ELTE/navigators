@@ -1,0 +1,15 @@
+<launch>
+    <!-- Stuff to run for gmapping, not tested -->
+
+    <include file="$(find scout_bringup)/launch/scout_minimal.launch" />
+    <node pkg="tf" type="static_transform_publisher" name="footprint_to_base"
+        args="0 0 0.1852 0 0 0 base_footprint base_link 10" />
+    <node pkg="tf" type="static_transform_publisher" name="map_to_odom"
+        args="0 0 0 0 0 0 map odom 100" />
+    <node pkg="tf" type="static_transform_publisher" name="footprint_to_velodyne"
+        args="0 0 0.138 0 0 0 base_footprint velodyne 100" />
+    <node pkg="tf" type="static_transform_publisher" name="link_to_lidar"
+        args="0 0 0.138 0 0 0 base_link rslidar 100" />
+    <include file="$(find scout_bringup)/launch/open_rslidar.launch" />
+
+</launch>
