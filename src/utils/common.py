@@ -5,6 +5,7 @@ from tf.transformations import euler_from_quaternion
 
 IMU_TOPIC = "/replace_me"
 COMPASS_UNCERTAINTY = np.deg2rad(5)
+GPS_UNCERTAINTY = [1, 1]
 GNSS_TOPIC = "/gnss"
 
 DEG = "°"

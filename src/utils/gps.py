@@ -52,8 +52,9 @@ class GPSHandler:
 
 
 class GPSReceiver:
-    def __init__(self, topic: str, buffer_size: int = 10):
+    def __init__(self, topic: str, buffer_size: int = 10, custom_callback=None):
         self.buffer = deque(maxlen=buffer_size)
+        self.custom_callback = custom_callback
         self.sub = Subscriber(topic, NavSatFix, self.callback)
 
     def get_latest_fix(self):
@@ -69,6 +70,8 @@ class GPSReceiver:
             return
 
         self.buffer.append(msg)
+        if self.custom_callback is not None:
+            self.custom_callback(msg)
 
     def create_handler(self, init_sleep_s=0) -> GPSHandler:
         """Create a GPSHandler based on the location of the latest fix, after sleeping for `init_sleep_s`"""
