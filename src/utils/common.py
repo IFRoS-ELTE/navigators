@@ -1,6 +1,10 @@
 import numpy as np
+from geometry_msgs.msg import Quaternion
+from sensor_msgs.msg import Imu
+from tf.transformations import euler_from_quaternion
 
-COMPASS_TOPIC = "/replace_me"
+IMU_TOPIC = "/replace_me"
+COMPASS_UNCERTAINTY = np.deg2rad(5)
 GNSS_TOPIC = "/gnss"
 
 DEG = "°"
@@ -26,3 +30,13 @@ def bring_angle_around(angle: float, value: float = 0):
         angle += 2 * np.pi
 
     return angle
+
+
+def get_yaw_from_imu(imu: Imu):
+    """Extract yaw from the Imu message."""
+    return yaw_from_quaternion(imu.orientation)
+
+
+def yaw_from_quaternion(q: Quaternion):
+    values = [q.x, q.y, q.z, q.w]
+    return euler_from_quaternion(values)[2]
