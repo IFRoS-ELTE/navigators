@@ -1,6 +1,9 @@
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
+import rospy
+from rospy import Subscriber
 from sensor_msgs.msg import NavSatFix
 
 EARTH_RADIUS = 6366 * 1e3  # https://rechneronline.de/earth-radius/
@@ -46,6 +49,33 @@ class GPSHandler:
         lat_rad = y / EARTH_RADIUS + self.ref.latitude
         lon_rad = x / (EARTH_RADIUS * self.cos) + self.ref.longitude
         return GPSLocation.from_lat_lon(lat_rad, lon_rad, degree_input=False)
+
+
+class GPSReceiver:
+    def __init__(self, topic: str, buffer_size: int = 10):
+        self.buffer = deque(maxlen=buffer_size)
+        self.sub = Subscriber(topic, NavSatFix, self.callback)
+
+    def get_latest_fix(self):
+        """Return the last NavSatFix received."""
+        if not self.buffer:
+            return None
+
+        return self.buffer[-1]
+
+    def callback(self, msg: NavSatFix):
+        if msg.status.status == msg.STATUS_NO_FIX:
+            print("NO GPS FIX (YET)")
+            return
+
+        self.buffer.append(msg)
+
+    def create_handler(self, init_sleep_s=0) -> GPSHandler:
+        """Create a GPSHandler based on the location of the latest fix, after sleeping for `init_sleep_s`"""
+        rospy.sleep(init_sleep_s)
+
+        reference = GPSLocation.from_navsatfix(self.get_latest_fix())
+        return GPSHandler(reference)
 
 
 if __name__ == "__main__":
