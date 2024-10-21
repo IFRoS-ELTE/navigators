@@ -37,10 +37,15 @@ class Robot:
 
     def gps_callback(self, msg: NavSatFix):
         """Convert a NavSatFix to a XY and store the location measurement."""
+        if "gps_handler" not in dir(self) or self.gps_handler is None:
+            # Handler not initialised yet
+            return
+
         gps_position = GPSLocation.from_lat_lon(msg.latitude, msg.longitude)
 
         xy = self.gps_handler.get_xy(gps_position)
         self.location_measurement = LocationMeasurement(xy.reshape((1, 2)))
+        print("Created location measurement", self.location_measurement.z)
 
     def compass_callback(self, message: Imu):
         """Store compass value."""

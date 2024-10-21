@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import rospy
 from rospy import Subscriber
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, NavSatStatus
 
 EARTH_RADIUS = 6366 * 1e3  # https://rechneronline.de/earth-radius/
 
@@ -65,7 +65,7 @@ class GPSReceiver:
         return self.buffer[-1]
 
     def callback(self, msg: NavSatFix):
-        if msg.status.status == msg.STATUS_NO_FIX:
+        if msg.status.status == NavSatStatus.STATUS_NO_FIX:
             print("NO GPS FIX (YET)")
             return
 
