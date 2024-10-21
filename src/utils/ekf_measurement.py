@@ -15,11 +15,12 @@ class EKFMeasurement:
         self.R = None
 
     def h(self, state: np.ndarray):
-        return self.H @ state
+        return self.H @ np.array(state).reshape((-1, 1))
 
 
 class CompassMeasurement(EKFMeasurement):
     def __init__(self, value):
+        assert value.shape == (1, 1), "CompassMeasurement should have shape (1, 1)"
         super().__init__(value)
         self.H = np.array([0, 0, 1]).reshape((1, 3))
         self.V = np.array([1]).reshape((1, 1))
@@ -28,6 +29,8 @@ class CompassMeasurement(EKFMeasurement):
 
 class LocationMeasurement(EKFMeasurement):
     def __init__(self, value):
+        assert value.shape == (2, 1), "LocationMeasurement should have shape (2, 1)"
+
         super().__init__(value)
         self.H = np.array([[1, 0, 0], [0, 1, 0]]).reshape((2, 3))
         self.V = np.eye(2)

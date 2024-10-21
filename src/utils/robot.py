@@ -44,7 +44,7 @@ class Robot:
         gps_position = GPSLocation.from_lat_lon(msg.latitude, msg.longitude)
 
         xy = self.gps_handler.get_xy(gps_position)
-        self.location_measurement = LocationMeasurement(xy.reshape((1, 2)))
+        self.location_measurement = LocationMeasurement(xy.reshape((2, 1)))
         print("Created location measurement", self.location_measurement.z)
 
     def compass_callback(self, message: Imu):

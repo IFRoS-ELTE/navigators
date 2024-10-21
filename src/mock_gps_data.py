@@ -22,8 +22,8 @@ def create_navsatfix(gps_location: GPSLocation):
     msg = NavSatFix()
     msg.header.stamp = rospy.Time.now()
     msg.status.status = NavSatStatus.STATUS_FIX
-    msg.latitude = r2d(gps_location.latitude)
-    msg.longitude = r2d(gps_location.longitude)
+    msg.latitude = r2d(gps_location.latitude_rad)
+    msg.longitude = r2d(gps_location.longitude_rad)
 
     msg.position_covariance = COVARIANCE.flatten()
 

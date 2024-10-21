@@ -15,8 +15,8 @@ r2d = np.rad2deg
 
 @dataclass
 class GPSLocation:
-    latitude: float
-    longitude: float
+    latitude_rad: float
+    longitude_rad: float
 
     @staticmethod
     def from_lat_lon(lat: float, lon: float, degree_input=True) -> "GPSLocation":
@@ -29,25 +29,25 @@ class GPSLocation:
         return GPSLocation.from_lat_lon(msg.latitude, msg.longitude)
 
     def __repr__(self):
-        return f"<lat={r2d(self.latitude):.6f}, lon={r2d(self.longitude):.6f}>"
+        return f"<lat={r2d(self.latitude_rad):.6f}, lon={r2d(self.longitude_rad):.6f}>"
 
 
 class GPSHandler:
     def __init__(self, reference: GPSLocation):
         self.ref = reference
-        self.cos = np.cos(self.ref.latitude)
+        self.cos = np.cos(self.ref.latitude_rad)
 
         print(f"Initialised LocationHandler at {self.ref}")
 
     def get_xy(self, gps: GPSLocation):
-        x = EARTH_RADIUS * (gps.longitude - self.ref.longitude) * self.cos
-        y = EARTH_RADIUS * (gps.latitude - self.ref.latitude)
+        x = EARTH_RADIUS * (gps.longitude_rad - self.ref.longitude_rad) * self.cos
+        y = EARTH_RADIUS * (gps.latitude_rad - self.ref.latitude_rad)
         return np.array([x, y])
 
     def get_gps(self, xy: np.ndarray) -> GPSLocation:
         x, y = xy
-        lat_rad = y / EARTH_RADIUS + self.ref.latitude
-        lon_rad = x / (EARTH_RADIUS * self.cos) + self.ref.longitude
+        lat_rad = y / EARTH_RADIUS + self.ref.latitude_rad
+        lon_rad = x / (EARTH_RADIUS * self.cos) + self.ref.longitude_rad
         return GPSLocation.from_lat_lon(lat_rad, lon_rad, degree_input=False)
 
 
