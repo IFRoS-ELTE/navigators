@@ -75,10 +75,13 @@ class GPSReceiver:
 
     def create_handler(self, init_sleep_s=0) -> GPSHandler:
         """Create a GPSHandler based on the location of the latest fix, after sleeping for `init_sleep_s`"""
+        rospy.loginfo("Creating GPSHandler...")
         rospy.sleep(init_sleep_s)
-
-        reference = GPSLocation.from_navsatfix(self.get_latest_fix())
-        return GPSHandler(reference)
+        latest_fix = self.get_latest_fix()
+        if not latest_fix:
+            rospy.logwarn("No GPS fix available.")
+            return None
+        return GPSHandler(GPSLocation.from_navsatfix(latest_fix))
 
 
 if __name__ == "__main__":

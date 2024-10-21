@@ -7,6 +7,9 @@ IMU_TOPIC = "/replace_me"
 COMPASS_UNCERTAINTY = np.deg2rad(5)
 GPS_UNCERTAINTY = [1, 1]
 GNSS_TOPIC = "/gnss"
+POSE_TOPIC = "/pose"
+
+MAP_FRAME = "map"
 
 DEG = "°"
 

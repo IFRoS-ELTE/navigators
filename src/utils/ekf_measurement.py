@@ -1,8 +1,8 @@
 from typing import List
 
 import numpy as np
-from common import COMPASS_UNCERTAINTY, GPS_UNCERTAINTY
 from scipy.linalg import block_diag
+from utils.common import COMPASS_UNCERTAINTY, GPS_UNCERTAINTY
 
 
 class EKFMeasurement:

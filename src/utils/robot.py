@@ -1,32 +1,39 @@
 import numpy as np
 import rospy
-from common import COMPASS_UNCERTAINTY, GNSS_TOPIC, IMU_TOPIC, get_yaw_from_imu
-from ekf_measurement import (
+from sensor_msgs.msg import Imu, NavSatFix
+from utils.common import COMPASS_UNCERTAINTY, GNSS_TOPIC, IMU_TOPIC, get_yaw_from_imu
+from utils.ekf_measurement import (
     CompassMeasurement,
     LocationMeasurement,
     combine_measurements,
 )
-from gps import GPSHandler, GPSLocation, GPSReceiver
-from pose import Pose3D
-from sensor_msgs.msg import Imu, NavSatFix
-from sensors import get_initial_compass_reading
+from utils.gps import GPSHandler, GPSLocation, GPSReceiver
+from utils.pose import Pose3D
+from utils.rviz_publisher import RVizPublisher
+from utils.sensors import get_initial_compass_reading
 
 
 class Robot:
     def __init__(self):
+        rospy.loginfo("Initialising robot...")
         self.initial_compass = get_initial_compass_reading()
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.initial_compass)
-        self.cov: np.ndarray = np.diagonal([0.05, 0.05, 0.1])
+        self.cov: np.ndarray = np.diag([0.05, 0.05, 0.1])
 
         self.location_measurement: LocationMeasurement = None
         self.gps_receiver = GPSReceiver(GNSS_TOPIC, custom_callback=self.gps_callback)
         self.gps_handler = self.gps_receiver.create_handler(init_sleep_s=3)
 
         self.compass_measurement: CompassMeasurement = None
-        rospy.Subscriber(IMU_TOPIC, Imu, self.compass_cb)
+        rospy.Subscriber(IMU_TOPIC, Imu, self.compass_callback)
+
+        self.rviz_pub = RVizPublisher()
+        rospy.Timer(rospy.Duration(0.1), self.publish_pose)
 
         # Run EKF at the given frequency
-        rospy.Timer(0.1, self.ekf_step)
+        rospy.Timer(rospy.Duration(0.1), self.ekf_step)
+
+        rospy.loginfo(">" * 10 + " Robot init successful!")
 
     def gps_callback(self, msg: NavSatFix):
         """Convert a NavSatFix to a XY and store the location measurement."""
@@ -49,6 +56,9 @@ class Robot:
             m for m in self.get_measurements() if m is not None and not m.used
         ]
 
+        if not not_used_ms:
+            return self.pose, self.cov
+
         z, R, H, V, h = combine_measurements(not_used_ms, self.pose)
 
         P_bar = self.cov
@@ -64,10 +74,13 @@ class Robot:
 
         return new_pose, new_cov
 
-    def ekf_step(self):
+    def ekf_step(self, t):
         """Perform the EKF prediction and update."""
 
         # Prediction from odometry?
 
         # Update using measurements
         self.pose, self.cov = self.ekf_update()
+
+    def publish_pose(self, t):
+        self.rviz_pub.publish_pose(self.pose, rospy.Time.now())

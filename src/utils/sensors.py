@@ -1,10 +1,11 @@
 import numpy as np
 import rospy
-from common import IMU_TOPIC, get_yaw_from_imu
 from sensor_msgs.msg import Imu
+from utils.common import IMU_TOPIC, get_yaw_from_imu
 
 
 def get_initial_compass_reading(timeout_s=3, wanted_readings=10):
+    rospy.loginfo("Getting initial compass reading...")
     compass_readings = []
 
     def compass_cb(msg: Imu):
@@ -19,5 +20,9 @@ def get_initial_compass_reading(timeout_s=3, wanted_readings=10):
             break
 
     sub.unregister()
+
+    if not compass_readings:
+        rospy.logwarn("No compass readings received.")
+        return 0
 
     return np.mean(compass_readings)
