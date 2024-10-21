@@ -9,13 +9,11 @@ r2d = np.rad2deg
 
 LOCATIONS = [
     (0, 0),
-    (0.1, 0),
-    (0.2, 0),
-    (0.3, 0),
-    (0.4, 0),
+    (1, 0),
+    (2, 0),
+    (3, 0),
+    (4, 0),
 ]
-
-COVARIANCE = np.diag([0.1, 0.1, 0])
 
 
 def create_navsatfix(gps_location: GPSLocation):
@@ -24,9 +22,6 @@ def create_navsatfix(gps_location: GPSLocation):
     msg.status.status = NavSatStatus.STATUS_FIX
     msg.latitude = r2d(gps_location.latitude_rad)
     msg.longitude = r2d(gps_location.longitude_rad)
-
-    msg.position_covariance = COVARIANCE.flatten()
-
     return msg
 
 
@@ -41,7 +36,7 @@ class GPSMock:
 
         msg = create_navsatfix(gps_location)
         self.publisher.publish(msg)
-        rospy.loginfo("Published mock NavSatFix.")
+        rospy.logdebug("Published mock NavSatFix.")
 
     def run(self):
         forth_and_back = LOCATIONS + list(reversed(LOCATIONS))
@@ -49,12 +44,13 @@ class GPSMock:
         should_run = True
         while should_run:
             for location in forth_and_back:
-                self.publish_navsatfix(location)
-                rospy.sleep(1)
+                for _ in range(100):
+                    self.publish_navsatfix(location)
+                    rospy.sleep(0.1)
 
-                if rospy.is_shutdown():
-                    should_run = False
-                    break
+                    if rospy.is_shutdown():
+                        should_run = False
+                        break
 
 
 def main():

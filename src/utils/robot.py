@@ -1,5 +1,12 @@
+import os
+
+import matplotlib
+
+matplotlib.use("Agg")
+
 import numpy as np
 import rospy
+from matplotlib import pyplot as plt
 from sensor_msgs.msg import Imu, NavSatFix
 from utils.common import COMPASS_UNCERTAINTY, GNSS_TOPIC, IMU_TOPIC, get_yaw_from_imu
 from utils.ekf_measurement import (
@@ -18,11 +25,11 @@ class Robot:
         rospy.loginfo("Initialising robot...")
         self.initial_compass = get_initial_compass_reading()
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.initial_compass)
-        self.cov: np.ndarray = np.diag([0.05, 0.05, 0.1])
+        self.cov: np.ndarray = np.diag([1, 1, 0.1])
 
         self.location_measurement: LocationMeasurement = None
         self.gps_receiver = GPSReceiver(GNSS_TOPIC, custom_callback=self.gps_callback)
-        self.gps_handler = self.gps_receiver.create_handler(init_sleep_s=3)
+        self.gps_handler: GPSHandler = self.gps_receiver.create_handler(init_sleep_s=3)
 
         self.compass_measurement: CompassMeasurement = None
         rospy.Subscriber(IMU_TOPIC, Imu, self.compass_callback)
@@ -45,7 +52,6 @@ class Robot:
 
         xy = self.gps_handler.get_xy(gps_position)
         self.location_measurement = LocationMeasurement(xy.reshape((2, 1)))
-        print("Created location measurement", self.location_measurement.z)
 
     def compass_callback(self, message: Imu):
         """Store compass value."""
@@ -72,20 +78,29 @@ class Robot:
         new_pose = self.pose + K_gain @ (z - h)
 
         I = np.identity((K_gain @ H).shape[0])
-        new_cov = (I - K_gain @ H) @ P_bar @ (I - K_gain @ H).T
+        new_cov = (I - K_gain @ H) @ P_bar
 
         for m in not_used_ms:
             m.used = True
 
         return new_pose, new_cov
 
+    def ekf_predict(self):
+        """A a prediction step which doesn't modify the pose, but increases the covariance."""
+
+        Q = np.diag([0.1, 0.1, np.deg2rad(3)])
+        W = np.eye(3)
+        return self.pose, self.cov + W @ Q @ W.T
+
     def ekf_step(self, t):
         """Perform the EKF prediction and update."""
 
         # Prediction from odometry?
+        self.pose, self.cov = self.ekf_predict()
 
         # Update using measurements
         self.pose, self.cov = self.ekf_update()
 
     def publish_pose(self, t):
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())
+        print("Pose estimate:", self.pose)
