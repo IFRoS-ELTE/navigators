@@ -2,13 +2,10 @@
 
 import numpy as np
 import rospy
-import tf
-
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 from rospy import Publisher, Subscriber
-from utils.robot import Robot
 from utils import common
+from utils.robot import Robot
 
 
 class Controller:
