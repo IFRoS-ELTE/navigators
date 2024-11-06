@@ -42,12 +42,14 @@ class Controller:
         rospy.loginfo(f"Robot is at {self.current_pose}")
 
     def compute_velocities(self):
-        if not self.goal:
+        if self.goal is None:
             return 0, 0
 
-        x_r, y_r, theta_r = (
-            self.robot.pose
-        )  # Robot's current position and orientation (in radians)
+        # Robot's current position and orientation (in radians)
+        x_r = self.robot.pose.x
+        y_r = self.robot.pose.y
+        theta_r = self.robot.pose.theta
+
         x_g, y_g = self.goal  # Goal position
 
         # Calculate the distance to the goal
@@ -77,9 +79,8 @@ class Controller:
         v, w = self.compute_velocities()
 
         t = Twist()
-
-        t.linear.x = min(v, self.v_max)
-        t.angular.z = min(w, self.w_max)
+        t.linear.x = common.limit_velocity(v, self.v_max)
+        t.angular.z = common.limit_velocity(w, self.w_max)
 
         print("Will publish", t.linear.x, t.angular.z)
 

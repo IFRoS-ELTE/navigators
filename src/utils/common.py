@@ -44,3 +44,13 @@ def get_yaw_from_imu(imu: Imu):
 def yaw_from_quaternion(q: Quaternion):
     values = [q.x, q.y, q.z, q.w]
     return euler_from_quaternion(values)[2]
+
+
+def limit_velocity(vel, absolute_limit):
+    if vel < -absolute_limit:
+        return -absolute_limit
+    
+    if vel > absolute_limit:
+        return absolute_limit
+    
+    return vel
