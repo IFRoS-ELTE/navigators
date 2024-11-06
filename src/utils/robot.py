@@ -1,4 +1,4 @@
-import os
+from collections import deque
 
 import matplotlib
 
@@ -23,6 +23,7 @@ from utils.sensors import get_initial_compass_reading
 class Robot:
     def __init__(self):
         rospy.loginfo("Initialising robot...")
+        self.pose_history = deque(maxlen=100)
         self.initial_compass = get_initial_compass_reading()
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.initial_compass)
         self.cov: np.ndarray = np.diag([1, 1, 0.1])
@@ -102,5 +103,8 @@ class Robot:
         self.pose, self.cov = self.ekf_update()
 
     def publish_pose(self, t):
+        self.rviz_pub.publish_pose_list(self.pose_history)
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())
         print("Pose estimate:", self.pose)
+
+        self.pose_history.append(self.pose)
