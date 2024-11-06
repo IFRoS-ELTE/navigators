@@ -7,11 +7,19 @@ matplotlib.use("Agg")
 import numpy as np
 import rospy
 from matplotlib import pyplot as plt
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu, NavSatFix
-from utils.common import COMPASS_UNCERTAINTY, GNSS_TOPIC, IMU_TOPIC, get_yaw_from_imu
+from utils.common import (
+    GNSS_TOPIC,
+    IMU_TOPIC,
+    ODOM_TOPIC,
+    bring_angle_around,
+    get_yaw_from_imu,
+)
 from utils.ekf_measurement import (
     CompassMeasurement,
     LocationMeasurement,
+    OdomMeasurement,
     combine_measurements,
 )
 from utils.gps import GPSHandler, GPSLocation, GPSReceiver
@@ -31,6 +39,9 @@ class Robot:
         self.gps_receiver = GPSReceiver(GNSS_TOPIC, custom_callback=self.gps_callback)
         self.gps_handler: GPSHandler = self.gps_receiver.create_handler(init_sleep_s=3)
 
+        self.odom_measurement: OdomMeasurement = None
+        self.odom_sub = rospy.Subscriber(ODOM_TOPIC, Odometry, self.odom_callback)
+
         self.compass_measurement: CompassMeasurement = None
         rospy.Subscriber(IMU_TOPIC, Imu, self.compass_callback)
 
@@ -41,6 +52,14 @@ class Robot:
         rospy.Timer(rospy.Duration(0.1), self.ekf_step)
 
         rospy.loginfo(">" * 10 + " Robot init successful!")
+
+    def odom_callback(self, msg: Odometry):
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+
+        self.odom_measurement = OdomMeasurement(np.array([x, y]).reshape((2, 1)))
+
+        print("odom:", self.odom_measurement)
 
     def gps_callback(self, msg: NavSatFix):
         """Convert a NavSatFix to a XY and store the location measurement."""
@@ -53,14 +72,22 @@ class Robot:
         xy = self.gps_handler.get_xy(gps_position)
         self.location_measurement = LocationMeasurement(xy.reshape((2, 1)))
 
+        print("loc:", self.location_measurement)
+
     def compass_callback(self, message: Imu):
         """Store compass value."""
+        raw_reading = get_yaw_from_imu(message)
+        adjusted_reading = bring_angle_around(raw_reading, self.pose.theta)
         self.compass_measurement = CompassMeasurement(
-            np.array(get_yaw_from_imu(message)).reshape((1, 1))
+            np.array(adjusted_reading).reshape((1, 1))
         )
 
     def get_measurements(self):
-        return [self.compass_measurement, self.location_measurement]
+        return [
+            self.compass_measurement,
+            self.location_measurement,
+            self.odom_measurement,
+        ]
 
     def ekf_update(self):
         not_used_ms = [
@@ -100,6 +127,12 @@ class Robot:
 
         # Update using measurements
         self.pose, self.cov = self.ekf_update()
+
+        self.normalise_theta()
+
+    def normalise_theta(self):
+        new_theta = bring_angle_around(self.pose.theta, 0)
+        self.pose = Pose3D.from_values(self.pose.x, self.pose.y, new_theta)
 
     def publish_pose(self, t):
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())

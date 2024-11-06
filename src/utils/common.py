@@ -3,11 +3,11 @@ from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import Imu
 from tf.transformations import euler_from_quaternion
 
-IMU_TOPIC = "/replace_me"
-COMPASS_UNCERTAINTY = np.deg2rad(5)
-GPS_UNCERTAINTY = [10, 10]
+IMU_TOPIC = "/imu/data"
+
 GNSS_TOPIC = "/gnss"
 POSE_TOPIC = "/pose"
+ODOM_TOPIC = "/odom"
 
 MAP_FRAME = "map"
 
