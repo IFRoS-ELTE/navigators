@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import rospy
 from rospy import Subscriber
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, NavSatStatus
 
 EARTH_RADIUS = 6366 * 1e3  # https://rechneronline.de/earth-radius/
 
@@ -15,8 +15,8 @@ r2d = np.rad2deg
 
 @dataclass
 class GPSLocation:
-    latitude: float
-    longitude: float
+    latitude_rad: float
+    longitude_rad: float
 
     @staticmethod
     def from_lat_lon(lat: float, lon: float, degree_input=True) -> "GPSLocation":
@@ -29,25 +29,25 @@ class GPSLocation:
         return GPSLocation.from_lat_lon(msg.latitude, msg.longitude)
 
     def __repr__(self):
-        return f"<lat={r2d(self.latitude):.6f}, lon={r2d(self.longitude):.6f}>"
+        return f"<lat={r2d(self.latitude_rad):.6f}, lon={r2d(self.longitude_rad):.6f}>"
 
 
 class GPSHandler:
     def __init__(self, reference: GPSLocation):
         self.ref = reference
-        self.cos = np.cos(self.ref.latitude)
+        self.cos = np.cos(self.ref.latitude_rad)
 
         print(f"Initialised LocationHandler at {self.ref}")
 
     def get_xy(self, gps: GPSLocation):
-        x = EARTH_RADIUS * (gps.longitude - self.ref.longitude) * self.cos
-        y = EARTH_RADIUS * (gps.latitude - self.ref.latitude)
+        x = EARTH_RADIUS * (gps.longitude_rad - self.ref.longitude_rad) * self.cos
+        y = EARTH_RADIUS * (gps.latitude_rad - self.ref.latitude_rad)
         return np.array([x, y])
 
     def get_gps(self, xy: np.ndarray) -> GPSLocation:
         x, y = xy
-        lat_rad = y / EARTH_RADIUS + self.ref.latitude
-        lon_rad = x / (EARTH_RADIUS * self.cos) + self.ref.longitude
+        lat_rad = y / EARTH_RADIUS + self.ref.latitude_rad
+        lon_rad = x / (EARTH_RADIUS * self.cos) + self.ref.longitude_rad
         return GPSLocation.from_lat_lon(lat_rad, lon_rad, degree_input=False)
 
 
@@ -65,7 +65,7 @@ class GPSReceiver:
         return self.buffer[-1]
 
     def callback(self, msg: NavSatFix):
-        if msg.status.status == msg.STATUS_NO_FIX:
+        if msg.status.status == NavSatStatus.STATUS_NO_FIX:
             print("NO GPS FIX (YET)")
             return
 
@@ -75,10 +75,13 @@ class GPSReceiver:
 
     def create_handler(self, init_sleep_s=0) -> GPSHandler:
         """Create a GPSHandler based on the location of the latest fix, after sleeping for `init_sleep_s`"""
+        rospy.loginfo("Creating GPSHandler...")
         rospy.sleep(init_sleep_s)
-
-        reference = GPSLocation.from_navsatfix(self.get_latest_fix())
-        return GPSHandler(reference)
+        latest_fix = self.get_latest_fix()
+        if not latest_fix:
+            rospy.logwarn("No GPS fix available.")
+            return None
+        return GPSHandler(GPSLocation.from_navsatfix(latest_fix))
 
 
 if __name__ == "__main__":
