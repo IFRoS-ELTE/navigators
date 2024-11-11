@@ -45,7 +45,10 @@ class GPSMock:
         while should_run:
             for location in forth_and_back:
                 for _ in range(100):
-                    self.publish_navsatfix(location)
+
+                    noise = np.random.normal([0, 0], [0.1, 0.1])
+
+                    self.publish_navsatfix(np.array(location) + noise)
                     rospy.sleep(0.1)
 
                     if rospy.is_shutdown():
