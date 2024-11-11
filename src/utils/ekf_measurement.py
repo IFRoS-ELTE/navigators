@@ -2,7 +2,10 @@ from typing import List
 
 import numpy as np
 from scipy.linalg import block_diag
-from utils.common import COMPASS_UNCERTAINTY, GPS_UNCERTAINTY
+
+COMPASS_UNCERTAINTY = np.deg2rad(5)
+GPS_UNCERTAINTY = [100, 100]
+ODOM_UNCERTAINTY = [10, 10]
 
 
 class EKFMeasurement:
@@ -35,6 +38,22 @@ class LocationMeasurement(EKFMeasurement):
         self.H = np.array([[1, 0, 0], [0, 1, 0]]).reshape((2, 3))
         self.V = np.eye(2)
         self.R = np.diag(np.array(GPS_UNCERTAINTY))
+
+    def __str__(self):
+        return f"x: {self.z[0][0]:.3f} y:{self.z[1][0]:.3f}"
+
+
+class OdomMeasurement(EKFMeasurement):
+    def __init__(self, value):
+        assert value.shape == (2, 1), "OdomMeasurement should have shape (2, 1)"
+
+        super().__init__(value)
+        self.H = np.array([[1, 0, 0], [0, 1, 0]]).reshape((2, 3))
+        self.V = np.eye(2)
+        self.R = np.diag(np.array(ODOM_UNCERTAINTY))
+
+    def __str__(self):
+        return f"x: {self.z[0][0]:.3f} y:{self.z[1][0]:.3f}"
 
 
 def combine_measurements(ms: List[EKFMeasurement], state):

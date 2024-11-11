@@ -8,11 +8,13 @@ from tf.transformations import euler_from_quaternion
 
 PACKAGE_NAME = "navigators"
 
-IMU_TOPIC = "/replace_me"
 COMPASS_UNCERTAINTY = np.deg2rad(5)
 GPS_UNCERTAINTY = [10, 10]
+
 GNSS_TOPIC = "/gnss"
+IMU_TOPIC = "/imu/data"
 POSE_TOPIC = "/pose"
+ODOM_TOPIC = "/odom"
 
 MAP_FRAME = "map"
 

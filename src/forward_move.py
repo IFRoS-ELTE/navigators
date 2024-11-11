@@ -13,6 +13,8 @@ from utils import pcl_ops
 # - roslaunch rslidar_pointcloud rs_lidar_16.launch
 # - rosrun scout_base scout_base_node
 
+# export ROS_MASTER_URI=http://192.168.1.102:11311
+
 
 class Controller:
     def __init__(self):
