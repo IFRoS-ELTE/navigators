@@ -1,11 +1,18 @@
+import os
+
 import numpy as np
+import rospkg
 from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import Imu
 from tf.transformations import euler_from_quaternion
 
-IMU_TOPIC = "/imu/data"
+PACKAGE_NAME = "navigators"
+
+COMPASS_UNCERTAINTY = np.deg2rad(5)
+GPS_UNCERTAINTY = [10, 10]
 
 GNSS_TOPIC = "/gnss"
+IMU_TOPIC = "/imu/data"
 POSE_TOPIC = "/pose"
 ODOM_TOPIC = "/odom"
 
@@ -44,3 +51,23 @@ def get_yaw_from_imu(imu: Imu):
 def yaw_from_quaternion(q: Quaternion):
     values = [q.x, q.y, q.z, q.w]
     return euler_from_quaternion(values)[2]
+
+
+def limit_velocity(vel, absolute_limit):
+    if vel < -absolute_limit:
+        return -absolute_limit
+
+    if vel > absolute_limit:
+        return absolute_limit
+
+    return vel
+
+
+def get_package_path():
+    return rospkg.RosPack().get_path(PACKAGE_NAME)
+
+
+def get_debug_folder():
+    debug_folder = os.path.join(get_package_path(), "debug")
+    os.makedirs(debug_folder, exist_ok=True)
+    return debug_folder

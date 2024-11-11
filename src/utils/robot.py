@@ -1,4 +1,5 @@
-import os
+from collections import deque
+from typing import List
 
 import matplotlib
 
@@ -22,7 +23,7 @@ from utils.ekf_measurement import (
     OdomMeasurement,
     combine_measurements,
 )
-from utils.gps import GPSHandler, GPSLocation, GPSReceiver
+from utils.gps import GPSDataPoint, GPSHandler, GPSLocation, GPSReceiver
 from utils.pose import Pose3D
 from utils.rviz_publisher import RVizPublisher
 from utils.sensors import get_initial_compass_reading
@@ -31,9 +32,13 @@ from utils.sensors import get_initial_compass_reading
 class Robot:
     def __init__(self):
         rospy.loginfo("Initialising robot...")
+        self.pose_history = deque(maxlen=100)
         self.initial_compass = get_initial_compass_reading()
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.initial_compass)
         self.cov: np.ndarray = np.diag([1, 1, 0.1])
+
+        self.gps_datapoints: List[GPSDataPoint] = []
+        self.last_save_time = rospy.Time.now()
 
         self.location_measurement: LocationMeasurement = None
         self.gps_receiver = GPSReceiver(GNSS_TOPIC, custom_callback=self.gps_callback)
@@ -72,7 +77,19 @@ class Robot:
         xy = self.gps_handler.get_xy(gps_position)
         self.location_measurement = LocationMeasurement(xy.reshape((2, 1)))
 
-        print("loc:", self.location_measurement)
+        datapoint = GPSDataPoint(
+            msg.header.stamp.to_nsec(),
+            msg.latitude,
+            msg.longitude,
+            msg.altitude,
+            xy,
+            msg.position_covariance,
+        ).to_dict()
+        self.gps_datapoints.append(datapoint)
+
+        if rospy.Time.now() - self.last_save_time > rospy.Duration(10):
+            self.last_save_time = rospy.Time.now()
+            GPSDataPoint.save_points(self.gps_datapoints)
 
     def compass_callback(self, message: Imu):
         """Store compass value."""
@@ -135,5 +152,8 @@ class Robot:
         self.pose = Pose3D.from_values(self.pose.x, self.pose.y, new_theta)
 
     def publish_pose(self, t):
+        self.rviz_pub.publish_pose_list(self.pose_history)
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())
         print("Pose estimate:", self.pose)
+
+        self.pose_history.append(self.pose)

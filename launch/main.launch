@@ -1,6 +1,9 @@
 <launch>
     <arg name="rviz_config_path" default="$(find navigators)/rviz/main.rviz" />
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config_path)" />
-    <node pkg="navigators" type="gps_navigation.py" name="gps_navigation" output="screen" />
-    <!-- <node pkg="navigators" type="mock_gps_data.py" name="mock_gps" output="screen" /> -->
+
+    <!-- <node pkg="navigators" type="gps_navigation.py" name="gps_navigation" output="screen" />
+    <node pkg="navigators" type="mock_gps_data.py" name="mock_gps" output="screen" /> -->
+
+    <node pkg="navigators" type="controller.py" name="controller" output="screen" />
 </launch>
