@@ -1,16 +1,52 @@
+import os
+import pickle
 from collections import deque
 from dataclasses import dataclass
+from typing import List
 
 import numpy as np
 import rospy
 from rospy import Subscriber
 from sensor_msgs.msg import NavSatFix, NavSatStatus
+from utils.common import get_debug_folder
 
 EARTH_RADIUS = 6366 * 1e3  # https://rechneronline.de/earth-radius/
 
 
 d2r = np.deg2rad
 r2d = np.rad2deg
+
+
+@dataclass
+class GPSDataPoint:
+    ts: float
+    lat: float
+    lon: float
+    alt: float
+    xy: np.ndarray
+    cov: List[float]
+
+    def to_dict(self):
+        return {
+            "ts": self.ts,
+            "lat": self.lat,
+            "lon": self.lon,
+            "alt": self.alt,
+            "xy": list(self.xy),
+            "cov": list(self.cov),
+        }
+
+    @staticmethod
+    def save_points(points: List["GPSDataPoint"]):
+        output_root = os.path.join(get_debug_folder(), "gps_datapoints")
+        os.makedirs(output_root, exist_ok=True)
+        filename = f"{rospy.Time.now().to_nsec()}.pickle"
+
+        path = os.path.join(output_root, filename)
+
+        with open(path, "wb+") as file:
+            pickle.dump(points, file)
+            print("SAVED GPS POINTS", filename)
 
 
 @dataclass
