@@ -13,7 +13,7 @@ class YawProvider:
         self.integration_count = integration_count
         self.values: List[Vector3Stamped] = []
 
-        self.pub = rospy.Publisher(YAW_EAST_TOPIC, PoseStamped)
+        self.pub = rospy.Publisher(YAW_EAST_TOPIC, PoseStamped, queue_size=10)
         self.initial_yaw = None
         self.current_yaw = None
 

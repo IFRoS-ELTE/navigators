@@ -7,10 +7,12 @@ matplotlib.use("Agg")
 
 import numpy as np
 import rospy
-from geometry_msgs.msg import PoseStamped
+import tf2_ros
+from geometry_msgs.msg import PoseStamped, Quaternion, TransformStamped, Vector3
 from matplotlib import pyplot as plt
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import NavSatFix
+from tf import transformations
 from utils.common import GNSS_TOPIC, ODOM_TOPIC, YAW_EAST_TOPIC, bring_angle_around
 from utils.ekf_measurement import (
     CompassMeasurement,
@@ -24,6 +26,19 @@ from utils.rviz_publisher import RVizPublisher
 from utils.yaw_provider import YawProvider
 
 
+def publish_odom_transform(yaw):
+    br = tf2_ros.StaticTransformBroadcaster()
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()
+    t.header.frame_id = "map"
+    t.child_frame_id = "odom"
+
+    t.transform.translation = Vector3(0, 0, 0)
+    t.transform.rotation = Quaternion(*transformations.quaternion_from_euler(0, 0, yaw))
+
+    br.sendTransform(t)
+
+
 class Robot:
     def __init__(self):
         rospy.loginfo("Initialising robot...")
@@ -31,6 +46,8 @@ class Robot:
 
         self.yaw_provider = YawProvider(integration_count=15)
         self.inital_yaw = self.yaw_provider.get_initial_yaw()
+
+        publish_odom_transform(self.inital_yaw)
 
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.inital_yaw)
         self.cov: np.ndarray = np.diag([1, 1, 0.1])
@@ -91,7 +108,7 @@ class Robot:
 
     def compass_callback(self, message: PoseStamped):
         """Store compass value."""
-        yaw = message.orientation.z
+        yaw = message.pose.orientation.z
 
         print(
             f"raw yaw: {np.rad2deg(yaw):.2f}",
