@@ -7,16 +7,13 @@ matplotlib.use("Agg")
 
 import numpy as np
 import rospy
+import tf2_ros
+from geometry_msgs.msg import PoseStamped, Quaternion, TransformStamped, Vector3
 from matplotlib import pyplot as plt
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Imu, NavSatFix
-from utils.common import (
-    GNSS_TOPIC,
-    IMU_TOPIC,
-    ODOM_TOPIC,
-    bring_angle_around,
-    get_yaw_from_imu,
-)
+from sensor_msgs.msg import NavSatFix
+from tf import transformations
+from utils.common import GNSS_TOPIC, ODOM_TOPIC, YAW_EAST_TOPIC, bring_angle_around
 from utils.ekf_measurement import (
     CompassMeasurement,
     LocationMeasurement,
@@ -26,15 +23,33 @@ from utils.ekf_measurement import (
 from utils.gps import GPSDataPoint, GPSHandler, GPSLocation, GPSReceiver
 from utils.pose import Pose3D
 from utils.rviz_publisher import RVizPublisher
-from utils.sensors import get_initial_compass_reading
+from utils.yaw_provider import YawProvider
+
+
+def publish_odom_transform(yaw):
+    br = tf2_ros.StaticTransformBroadcaster()
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()
+    t.header.frame_id = "map"
+    t.child_frame_id = "odom"
+
+    t.transform.translation = Vector3(0, 0, 0)
+    t.transform.rotation = Quaternion(*transformations.quaternion_from_euler(0, 0, yaw))
+
+    br.sendTransform(t)
 
 
 class Robot:
     def __init__(self):
         rospy.loginfo("Initialising robot...")
         self.pose_history = deque(maxlen=100)
-        self.initial_compass = get_initial_compass_reading()
-        self.pose: Pose3D = Pose3D.from_values(0, 0, self.initial_compass)
+
+        self.yaw_provider = YawProvider(integration_count=15)
+        self.inital_yaw = self.yaw_provider.get_initial_yaw()
+
+        publish_odom_transform(self.inital_yaw)
+
+        self.pose: Pose3D = Pose3D.from_values(0, 0, self.inital_yaw)
         self.cov: np.ndarray = np.diag([1, 1, 0.1])
 
         self.gps_datapoints: List[GPSDataPoint] = []
@@ -48,7 +63,7 @@ class Robot:
         self.odom_sub = rospy.Subscriber(ODOM_TOPIC, Odometry, self.odom_callback)
 
         self.compass_measurement: CompassMeasurement = None
-        rospy.Subscriber(IMU_TOPIC, Imu, self.compass_callback)
+        rospy.Subscriber(YAW_EAST_TOPIC, PoseStamped, self.compass_callback)
 
         self.rviz_pub = RVizPublisher()
         rospy.Timer(rospy.Duration(0.1), self.publish_pose)
@@ -64,7 +79,7 @@ class Robot:
 
         self.odom_measurement = OdomMeasurement(np.array([x, y]).reshape((2, 1)))
 
-        print("odom:", self.odom_measurement)
+        # print("odom:", self.odom_measurement)
 
     def gps_callback(self, msg: NavSatFix):
         """Convert a NavSatFix to a XY and store the location measurement."""
@@ -91,10 +106,14 @@ class Robot:
             self.last_save_time = rospy.Time.now()
             GPSDataPoint.save_points(self.gps_datapoints)
 
-    def compass_callback(self, message: Imu):
+    def compass_callback(self, message: PoseStamped):
         """Store compass value."""
-        raw_reading = get_yaw_from_imu(message)
-        adjusted_reading = bring_angle_around(raw_reading, self.pose.theta)
+        yaw = message.pose.orientation.z
+
+        print(
+            f"raw yaw: {np.rad2deg(yaw):.2f}",
+        )
+        adjusted_reading = bring_angle_around(yaw, self.pose.theta)
         self.compass_measurement = CompassMeasurement(
             np.array(adjusted_reading).reshape((1, 1))
         )
@@ -154,6 +173,6 @@ class Robot:
     def publish_pose(self, t):
         self.rviz_pub.publish_pose_list(self.pose_history)
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())
-        print("Pose estimate:", self.pose)
+        # print("Pose estimate:", self.pose)
 
         self.pose_history.append(self.pose)
