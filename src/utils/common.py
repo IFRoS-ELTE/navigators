@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import rospkg
-from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Quaternion, Vector3
 from sensor_msgs.msg import Imu
 from tf.transformations import euler_from_quaternion
 
@@ -12,9 +12,11 @@ COMPASS_UNCERTAINTY = np.deg2rad(5)
 GPS_UNCERTAINTY = [10, 10]
 
 GNSS_TOPIC = "/gnss"
-IMU_TOPIC = "/imu/data"
+IMU_DATA_TOPIC = "/imu/data"
+IMU_MAG_TOPIC = "/imu/mag"
 POSE_TOPIC = "/pose"
 ODOM_TOPIC = "/odom"
+YAW_EAST_TOPIC = "/yaw_east"
 
 MAP_FRAME = "map"
 
@@ -46,6 +48,11 @@ def bring_angle_around(angle: float, value: float = 0):
 def get_yaw_from_imu(imu: Imu):
     """Extract yaw from the Imu message."""
     return yaw_from_quaternion(imu.orientation)
+
+
+def get_yaw_from_vector3(vector: Vector3):
+    """Extract yaw from the Vector value."""
+    return np.arctan2(vector.y, vector.x)
 
 
 def yaw_from_quaternion(q: Quaternion):
