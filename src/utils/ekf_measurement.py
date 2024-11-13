@@ -2,6 +2,7 @@ from typing import List
 
 import numpy as np
 from scipy.linalg import block_diag
+from utils.pose import Pose3D
 
 COMPASS_UNCERTAINTY = np.deg2rad(5)
 GPS_UNCERTAINTY = [100, 100]
@@ -44,11 +45,16 @@ class LocationMeasurement(EKFMeasurement):
 
 
 class OdomMeasurement(EKFMeasurement):
-    def __init__(self, value):
+    def __init__(self, value: np.ndarray, odom_origin_pose: Pose3D):
         assert value.shape == (2, 1), "OdomMeasurement should have shape (2, 1)"
 
         super().__init__(value)
-        self.H = np.array([[1, 0, 0], [0, 1, 0]]).reshape((2, 3))
+
+        yaw = odom_origin_pose.theta
+        s = np.sin(yaw)
+        c = np.cos(yaw)
+
+        self.H = np.array([[c, s, 0], [-s, c, 0]]).reshape((2, 3))
         self.V = np.eye(2)
         self.R = np.diag(np.array(ODOM_UNCERTAINTY))
 

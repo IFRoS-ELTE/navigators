@@ -49,6 +49,8 @@ class Robot:
 
         publish_odom_transform(self.inital_yaw)
 
+        self.odom_origin_pose = Pose3D.from_values(0, 0, self.inital_yaw)
+
         self.pose: Pose3D = Pose3D.from_values(0, 0, self.inital_yaw)
         self.cov: np.ndarray = np.diag([1, 1, 0.1])
 
@@ -74,10 +76,10 @@ class Robot:
         rospy.loginfo(">" * 10 + " Robot init successful!")
 
     def odom_callback(self, msg: Odometry):
-        x = msg.pose.pose.position.x
-        y = msg.pose.pose.position.y
+        p = msg.pose.position
+        position = np.array([p.x, p.y]).reshape((2, 1))
 
-        self.odom_measurement = OdomMeasurement(np.array([x, y]).reshape((2, 1)))
+        self.odom_measurement = OdomMeasurement(position, self.odom_origin_pose)
 
         # print("odom:", self.odom_measurement)
 
