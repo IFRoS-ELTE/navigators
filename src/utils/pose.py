@@ -2,7 +2,7 @@ from math import cos, sin
 
 import numpy as np
 from geometry_msgs.msg import Pose2D
-from utils.common import DEG, rotation_z, translation
+from utils.common import DEG, bring_angle_around, rotation_z, translation
 
 # Matrix to convert between XYZ and XY
 F = np.array([[1, 0, 0], [0, 1, 0]])
@@ -63,6 +63,9 @@ class Pose3D(np.ndarray):
     @property
     def theta(self):
         return self[2][0]
+
+    def normalize_theta(self):
+        self[2][0] = bring_angle_around(self.theta)
 
     def __str__(self) -> str:
         return f"x: {self.x:.2f} y: {self.y:.2f} θ: {np.degrees(self.theta):.2f}{DEG}"

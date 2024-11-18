@@ -23,6 +23,7 @@ from utils.ekf_measurement import (
 from utils.gps import GPSDataPoint, GPSHandler, GPSLocation, GPSReceiver
 from utils.pose import Pose3D
 from utils.rviz_publisher import RVizPublisher
+from utils.twist_integration import TwistIntegration
 from utils.yaw_provider import YawProvider
 
 
@@ -42,6 +43,9 @@ def publish_odom_transform(yaw):
 class Robot:
     def __init__(self):
         rospy.loginfo("Initialising robot...")
+
+        self.twist_integration = TwistIntegration()
+
         self.pose_history = deque(maxlen=100)
 
         self.yaw_provider = YawProvider(integration_count=15)
@@ -61,8 +65,8 @@ class Robot:
         self.gps_receiver = GPSReceiver(GNSS_TOPIC, custom_callback=self.gps_callback)
         self.gps_handler: GPSHandler = self.gps_receiver.create_handler(init_sleep_s=3)
 
-        self.odom_measurement: OdomMeasurement = None
-        self.odom_sub = rospy.Subscriber(ODOM_TOPIC, Odometry, self.odom_callback)
+        # self.odom_measurement: OdomMeasurement = None
+        # self.odom_sub = rospy.Subscriber(ODOM_TOPIC, Odometry, self.odom_callback)
 
         self.compass_measurement: CompassMeasurement = None
         rospy.Subscriber(YAW_EAST_TOPIC, PoseStamped, self.compass_callback)
@@ -76,12 +80,10 @@ class Robot:
         rospy.loginfo(">" * 10 + " Robot init successful!")
 
     def odom_callback(self, msg: Odometry):
-        p = msg.pose.position
+        p = msg.pose.pose.position
         position = np.array([p.x, p.y]).reshape((2, 1))
 
         self.odom_measurement = OdomMeasurement(position, self.odom_origin_pose)
-
-        # print("odom:", self.odom_measurement)
 
     def gps_callback(self, msg: NavSatFix):
         """Convert a NavSatFix to a XY and store the location measurement."""
@@ -94,6 +96,7 @@ class Robot:
         xy = self.gps_handler.get_xy(gps_position)
         self.location_measurement = LocationMeasurement(xy.reshape((2, 1)))
 
+        # Save datapoints for later plotting
         datapoint = GPSDataPoint(
             msg.header.stamp.to_nsec(),
             msg.latitude,
@@ -111,10 +114,9 @@ class Robot:
     def compass_callback(self, message: PoseStamped):
         """Store compass value."""
         yaw = message.pose.orientation.z
-
-        print(
-            f"raw yaw: {np.rad2deg(yaw):.2f}",
-        )
+        # print(
+        #     f"raw yaw: {np.rad2deg(yaw):.2f}",
+        # )
         adjusted_reading = bring_angle_around(yaw, self.pose.theta)
         self.compass_measurement = CompassMeasurement(
             np.array(adjusted_reading).reshape((1, 1))
@@ -123,8 +125,8 @@ class Robot:
     def get_measurements(self):
         return [
             self.compass_measurement,
-            self.location_measurement,
-            self.odom_measurement,
+            # self.location_measurement,
+            # self.odom_measurement,
         ]
 
     def ekf_update(self):
@@ -151,30 +153,34 @@ class Robot:
         return new_pose, new_cov
 
     def ekf_predict(self):
-        """A a prediction step which doesn't modify the pose, but increases the covariance."""
+        """EKF prediction step."""
+
+        displacement = self.twist_integration.get_displacement()
+
+        xk_1 = self.pose
+        self.pose = xk_1.oplus(displacement)
+        self.pose.normalize_theta()
+
+        Ak = xk_1.J_1oplus(displacement)
 
         Q = np.diag([0.1, 0.1, np.deg2rad(3)])
         W = np.eye(3)
-        return self.pose, self.cov + W @ Q @ W.T
+        return self.pose, Ak @ self.cov @ Ak.T + W @ Q @ W.T
 
     def ekf_step(self, t):
         """Perform the EKF prediction and update."""
 
         # Prediction from odometry?
         self.pose, self.cov = self.ekf_predict()
+        print("pred pose:", self.pose)
 
         # Update using measurements
         self.pose, self.cov = self.ekf_update()
 
-        self.normalise_theta()
-
-    def normalise_theta(self):
-        new_theta = bring_angle_around(self.pose.theta, 0)
-        self.pose = Pose3D.from_values(self.pose.x, self.pose.y, new_theta)
+        self.pose.normalize_theta()
 
     def publish_pose(self, t):
         self.rviz_pub.publish_pose_list(self.pose_history)
         self.rviz_pub.publish_pose(self.pose, rospy.Time.now())
-        # print("Pose estimate:", self.pose)
 
         self.pose_history.append(self.pose)
