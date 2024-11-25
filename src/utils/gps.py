@@ -89,7 +89,7 @@ class GPSHandler:
 
 class GPSReceiver:
     def __init__(self, topic: str, buffer_size: int = 10, custom_callback=None):
-        self.buffer = deque(maxlen=buffer_size)
+        self.buffer: deque[NavSatFix] = deque(maxlen=buffer_size)
         self.custom_callback = custom_callback
         self.sub = Subscriber(topic, NavSatFix, self.callback)
 
@@ -102,7 +102,7 @@ class GPSReceiver:
 
     def callback(self, msg: NavSatFix):
         if msg.status.status == NavSatStatus.STATUS_NO_FIX:
-            print("NO GPS FIX (YET)")
+            # print("NO GPS FIX (YET)")
             return
 
         self.buffer.append(msg)

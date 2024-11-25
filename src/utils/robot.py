@@ -172,7 +172,7 @@ class Robot:
 
         # Prediction from odometry?
         self.pose, self.cov = self.ekf_predict()
-        print("pred pose:", self.pose)
+        # print("pred pose:", self.pose)
 
         # Update using measurements
         self.pose, self.cov = self.ekf_update()

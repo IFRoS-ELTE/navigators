@@ -17,6 +17,7 @@ IMU_MAG_TOPIC = "/imu/mag"
 POSE_TOPIC = "/pose"
 ODOM_TOPIC = "/odom"
 YAW_EAST_TOPIC = "/yaw_east"
+TWIST_TOPIC = "/cmd_vel"
 
 MAP_FRAME = "map"
 

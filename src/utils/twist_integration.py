@@ -10,7 +10,7 @@ class TwistIntegration:
         self.previous_reading = None
 
         self.displacement = np.zeros((3, 1))
-        self.current_integration_count = 0
+        self.counter = 0
 
         rospy.Subscriber(ODOM_TOPIC, Odometry, self.odom_callback)
 
@@ -27,9 +27,9 @@ class TwistIntegration:
         local_displacement = self.compute_displacement(odom.twist.twist, dt)
         self.displacement += local_displacement
 
-        self.current_integration_count += 1
+        self.counter += 1
 
-        if self.current_integration_count > 1000:
+        if self.counter > 1000:
             print("Warning: twist accumulated > 1000 readings.")
 
         # if self.current_integration_count >= self.target_integration_count:
@@ -41,7 +41,7 @@ class TwistIntegration:
         displacement = np.copy(self.displacement)
         self.displacement = np.zeros((3, 1))
 
-        print(f"getting displacement from {self.current_integration_count} values.")
-        self.current_integration_count = 0
+        print(f"{displacement.flatten()} ({self.counter} readings)")
+        self.counter = 0
 
         return displacement
