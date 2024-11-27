@@ -45,6 +45,7 @@ if MODE == POMONA:
     IMU_CORRECTION_T = np.array([-0.1908, -0.0518, -0.5559])  # Thanks to Zed
     IMU_CORRECTION_A = np.eye(3)  # Thanks to Zed
     ANGLE_CORRECTION = 0
+    W_MAX = 0.5
 else:
     # For Silvanus
     IMU_CORRECTION_T = np.array([0.0243, -0.3730, -1.1995])
@@ -56,6 +57,7 @@ else:
         ]
     )
     ANGLE_CORRECTION = np.pi / 2
+    W_MAX = 0.1
 
 
 def correct_imu(raw):
@@ -93,7 +95,9 @@ class Robot:
         self.k_linear = k_linear
         self.k_angular = k_angular
 
-        self.vel_handler = VelocityHandler(twist_topic=TWIST_TOPIC, v_max=1, w_max=0.1)
+        self.vel_handler = VelocityHandler(
+            twist_topic=TWIST_TOPIC, v_max=1, w_max=W_MAX
+        )
 
         self.gps_receiver = AvgGPSReceiver(xy_callback_fn=self.xy_callback)
 
@@ -130,9 +134,13 @@ class Robot:
         self.last_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
     def save_latest_image(self, goal: GPSLocation):
+        if self.last_image is None:
+            print("No image available.")
+            return
+
         filename = f"{int(rospy.Time.now().to_sec())}_{goal}.jpg"
         cv2.imwrite(os.path.join(self.img_folder, filename), self.last_image)
-        print("Saved image to")
+        print("Saved image to", filename)
 
     def pointcloud_callback(self, pc: PointCloud2):
         if rospy.Time.now() - self.last_pcl_check < rospy.Duration(0.1):
@@ -216,7 +224,6 @@ class AvgGPSReceiver:
         self.receiver = GPSReceiver(
             GNSS_TOPIC, custom_callback=self.gps_callback, buffer_size=integration_count
         )
-        self.handler: GPSHandler = self.receiver.create_handler(init_sleep_s=3)
 
     def gps_callback(self, msg: NavSatFix):
         if len(self.receiver.buffer) < self.wanted_readings:
@@ -224,6 +231,7 @@ class AvgGPSReceiver:
 
         if "handler" not in dir(self) or self.handler is None:
             print("NO GPS handler")
+            self.handler: GPSHandler = self.receiver.create_handler(init_sleep_s=3)
             return
 
         all_lats = [n.latitude for n in self.receiver.buffer]
@@ -281,7 +289,7 @@ class AvgImuMagReceiver:
         print("SAVED RAW MAG", filename)
 
     def mag_callback(self, mag: Vector3Stamped):
-        print("Time diff:", (rospy.Time.now() - mag.header.stamp).to_sec())
+        # print("Time diff:", (rospy.Time.now() - mag.header.stamp).to_sec())
 
         xyz = [mag.vector.x, mag.vector.y, mag.vector.z]
         if self.save_raw_mag:
