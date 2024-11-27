@@ -3,12 +3,15 @@
 import os
 from collections import deque
 
+import cv2
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped, Twist, Vector3Stamped
 from rospy import Publisher
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import CompressedImage, NavSatFix, PointCloud2
+from utils import pcl_ops
 from utils.common import (
+    DEG,
     GNSS_TOPIC,
     IMU_MAG_TOPIC,
     TWIST_TOPIC,
@@ -17,6 +20,8 @@ from utils.common import (
     limit_velocity,
 )
 from utils.gps import GPSDataPoint, GPSHandler, GPSLocation, GPSReceiver
+from utils.pose import Pose3D
+from utils.rviz_publisher import RVizPublisher
 
 # Workflow:
 # For a target in GPS coordinates, convert to XY
@@ -24,9 +29,40 @@ from utils.gps import GPSDataPoint, GPSHandler, GPSLocation, GPSReceiver
 # Align robot to desired heading
 # - Need to know current heading in XY world
 
-MAGNETIC_DECLINATION = np.deg2rad(5.78)
 
-IMU_CORRECTION = np.array([-0.1908, -0.0518, -0.5559])  # Thanks to Zed
+# roslaunch realsense2_camera rs_camera.launch
+
+IMG_TOPIC = "/camera/color/image_raw/compressed"
+
+MAGNETIC_DECLINATION = np.deg2rad(5.78)
+POMONA = "pomona"
+SILVANUS = "silvanus"
+
+MODE = POMONA
+
+if MODE == POMONA:
+    # For Pomona
+    IMU_CORRECTION_T = np.array([-0.1908, -0.0518, -0.5559])  # Thanks to Zed
+    IMU_CORRECTION_A = np.eye(3)  # Thanks to Zed
+    ANGLE_CORRECTION = 0
+else:
+    # For Silvanus
+    IMU_CORRECTION_T = np.array([0.0243, -0.3730, -1.1995])
+    IMU_CORRECTION_A = np.array(
+        [
+            [0.8965, 0.0139, 0.1370],
+            [0.0139, 1.5075, 0.3872],
+            [0.1370, 0.3872, 0.8593],
+        ]
+    )
+    ANGLE_CORRECTION = np.pi / 2
+
+
+def correct_imu(raw):
+    return (
+        (np.array(raw).reshape(1, 3) - np.array(IMU_CORRECTION_T).reshape(1, 3))
+        @ IMU_CORRECTION_A
+    ).squeeze()
 
 
 def to_0_360(angle_rad):
@@ -52,12 +88,12 @@ class VelocityHandler:
 
 
 class Robot:
-    def __init__(self, k_linear: float, k_angular: float, goal_threshold_m: float = 5):
+    def __init__(self, k_linear: float, k_angular: float, goal_threshold_m: float):
 
         self.k_linear = k_linear
         self.k_angular = k_angular
 
-        self.vel_handler = VelocityHandler(TWIST_TOPIC, 1, 1)
+        self.vel_handler = VelocityHandler(twist_topic=TWIST_TOPIC, v_max=1, w_max=0.1)
 
         self.gps_receiver = AvgGPSReceiver(xy_callback_fn=self.xy_callback)
 
@@ -65,11 +101,50 @@ class Robot:
 
         self.goal: GPSLocation = None
 
+        self.pose_history = deque([], maxlen=100)
+
         self.xy = None
 
         self.goal_threshold = goal_threshold_m
 
+        self.rviz_pub = RVizPublisher()
+
+        self.obstacle_pts = 0
+
+        self.last_pcl_check = rospy.Time.now()
+
+        self.img_folder = os.path.join(get_debug_folder(), "imgs")
+        os.makedirs(self.img_folder, exist_ok=True)
+
+        self.last_image = None
+
+        if MODE == POMONA:
+            rospy.Subscriber("/velodyne_points", PointCloud2, self.pointcloud_callback)
+
+        rospy.Subscriber(IMG_TOPIC, CompressedImage, self.img_callback)
+
         self.control_timer = rospy.Timer(rospy.Duration(0.5), self.control_towards_goal)
+
+    def img_callback(self, img: CompressedImage):
+        np_arr = np.frombuffer(img.data, np.uint8)
+        self.last_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+    def save_latest_image(self, goal: GPSLocation):
+        filename = f"{int(rospy.Time.now().to_sec())}_{goal}.jpg"
+        cv2.imwrite(os.path.join(self.img_folder, filename), self.last_image)
+        print("Saved image to")
+
+    def pointcloud_callback(self, pc: PointCloud2):
+        if rospy.Time.now() - self.last_pcl_check < rospy.Duration(0.1):
+            return
+        pts = pcl_ops.get_pointcloud_points(pc)
+
+        pts = pcl_ops.filter_points_z(points=pts, min_z=-0.5, max_z=0.2)
+        pts = pcl_ops.filter_points_angle_range(points=pts, min_angle=-30, max_angle=30)
+        pts = pcl_ops.filter_points_distance(points=pts, min_distance=0, max_distance=1)
+
+        self.obstacle_pts = len(pts)
+        self.last_pcl_check = rospy.Time.now()
 
     def xy_callback(self, xy: np.ndarray):
         self.xy = xy
@@ -86,20 +161,36 @@ class Robot:
             print("No location yet.")
             return
 
-        target_xy = self.gps_receiver.handler.get_xy(self.goal)
+        if self.obstacle_pts > 0:
+            print("OBSTACLE: ", self.obstacle_pts)
+            self.vel_handler.publish_vel(v=0, w=0)
+            return
 
-        position_diff = target_xy - self.xy
+        goal_xy = self.gps_receiver.handler.get_xy(self.goal)
+
+        self.rviz_pub.publish_goal_xy(goal_xy)
+
+        position_diff = goal_xy - self.xy
         distance = np.linalg.norm(position_diff)
-        print(f"D: {distance:.2f}m")
 
         angle_to_goal = np.arctan2(position_diff[1], position_diff[0])
         current_angle = self.imu_receiver.yaw
 
+        pose = Pose3D.from_values(*self.xy, current_angle)
+        self.rviz_pub.publish_pose(pose, rospy.Time.now())
+
+        self.pose_history.append(pose)
+        self.rviz_pub.publish_pose_list(self.pose_history)
+
         angle_diff = angle_to_goal - current_angle
+        angle_diff = bring_angle_around(angle_diff)
+
+        print(f"D: {distance:.1f}m Angle: {np.rad2deg(angle_diff):.1f}{DEG}")
 
         if distance < self.goal_threshold:
             # if abs(angle_diff) < np.deg2rad(3):
             print("Goal has been reached.")
+            self.save_latest_image(self.goal)
             self.goal = None
             return
 
@@ -118,6 +209,7 @@ class AvgGPSReceiver:
 
         self.xy_callback_fn = xy_callback_fn
 
+        self.save_gps_points = False
         self.gps_datapoints = []
         self.last_save_time = rospy.Time.now()
 
@@ -130,6 +222,10 @@ class AvgGPSReceiver:
         if len(self.receiver.buffer) < self.wanted_readings:
             return
 
+        if "handler" not in dir(self) or self.handler is None:
+            print("NO GPS handler")
+            return
+
         all_lats = [n.latitude for n in self.receiver.buffer]
         avg_lat = np.mean(all_lats)
 
@@ -140,20 +236,21 @@ class AvgGPSReceiver:
 
         xy = self.handler.get_xy(gps_loc)
 
-        # Save datapoints for later plotting
-        datapoint = GPSDataPoint(
-            msg.header.stamp.to_nsec(),
-            avg_lat,
-            avg_long,
-            msg.altitude,
-            xy,
-            msg.position_covariance,
-        ).to_dict()
-        self.gps_datapoints.append(datapoint)
+        if self.save_gps_points:
+            # Save datapoints for later plotting
+            datapoint = GPSDataPoint(
+                msg.header.stamp.to_nsec(),
+                avg_lat,
+                avg_long,
+                msg.altitude,
+                xy,
+                msg.position_covariance,
+            ).to_dict()
+            self.gps_datapoints.append(datapoint)
 
-        if rospy.Time.now() - self.last_save_time > rospy.Duration(10):
-            self.last_save_time = rospy.Time.now()
-            GPSDataPoint.save_points(self.gps_datapoints)
+            if rospy.Time.now() - self.last_save_time > rospy.Duration(10):
+                self.last_save_time = rospy.Time.now()
+                GPSDataPoint.save_points(self.gps_datapoints)
 
         if self.xy_callback_fn is not None:
             self.xy_callback_fn(xy)
@@ -163,14 +260,16 @@ class AvgImuMagReceiver:
     def __init__(self, integration_count=15):
         self.values: deque[Vector3Stamped] = deque([], maxlen=integration_count)
         self.integration_count = integration_count
-        self.yaw = None
+        self.yaw = 0
         rospy.Subscriber(IMU_MAG_TOPIC, Vector3Stamped, self.mag_callback)
 
+        self.save_raw_mag = False
         self.raw_mag = []
 
-        # rospy.Timer(rospy.Duration(10), self.save_raw_mag)
+        if self.save_raw_mag:
+            rospy.Timer(rospy.Duration(10), self.__save_raw_mag)
 
-    def save_raw_mag(self, t):
+    def __save_raw_mag(self, t):
         data = np.array(self.raw_mag)
 
         output_root = os.path.join(get_debug_folder(), "raw_mag")
@@ -179,14 +278,17 @@ class AvgImuMagReceiver:
         filename = f"{rospy.Time.now().to_nsec()}.txt"
 
         np.savetxt(os.path.join(output_root, filename), data)
-        print("SAVED RAW MAG")
+        print("SAVED RAW MAG", filename)
 
     def mag_callback(self, mag: Vector3Stamped):
+        print("Time diff:", (rospy.Time.now() - mag.header.stamp).to_sec())
 
         xyz = [mag.vector.x, mag.vector.y, mag.vector.z]
+        if self.save_raw_mag:
+            self.raw_mag.append(xyz)
 
         raw_value = np.array(xyz)
-        calibrated_value = raw_value - IMU_CORRECTION
+        calibrated_value = correct_imu(raw_value)
 
         self.values.append(calibrated_value)
         if len(self.values) < self.integration_count:
@@ -207,7 +309,7 @@ class AvgImuMagReceiver:
 
         mean_yaw = np.arctan2(raw_values[1], raw_values[0])
 
-        yaw = -mean_yaw + MAGNETIC_DECLINATION
+        yaw = -mean_yaw + MAGNETIC_DECLINATION + ANGLE_CORRECTION
         yaw = bring_angle_around(yaw)
 
         # print(f"YAW {to_0_360(yaw):.1f} MEAN YAW: {to_0_360(mean_yaw):.1f}")
@@ -223,11 +325,12 @@ if __name__ == "__main__":
         # (47.4772108, 19.1360045),
         # (47.6916700, 19.0783735),
         # (47.4425020, 18.2609145),
-        (47.4738730, 19.0580338),
-        (47.4740833, 19.0579239),
+        (47.4738730, 19.0580338),  # Near fence
+        (47.4740833, 19.0579239),  # Near entrance
+        # (47.473820, 19.057358)  # mock
     ]
 
-    r = Robot(k_linear=1, k_angular=1, goal_threshold_m=4)
+    r = Robot(k_linear=1, k_angular=1, goal_threshold_m=3)
 
     for i, (lat, lon) in enumerate(targets):
         goal = GPSLocation.from_lat_lon(lat, lon, degree_input=True)
@@ -236,7 +339,6 @@ if __name__ == "__main__":
 
         while r.goal is not None and not rospy.is_shutdown():
             rospy.sleep(1)
-            print("Moving...")
 
     print("All targets visited!")
 

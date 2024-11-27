@@ -1,5 +1,6 @@
 from typing import List
 
+import numpy as np
 import rospy
 import tf
 from geometry_msgs.msg import (
@@ -30,6 +31,8 @@ class RVizPublisher:
         self.pose_history_pub = rospy.Publisher(
             "pose_history", MarkerArray, queue_size=1
         )
+
+        self.goal_xy_pub = rospy.Publisher("goal_xy", Marker, queue_size=1)
 
         self.published_poses_max_id = 0
 
@@ -67,6 +70,42 @@ class RVizPublisher:
         pub.publish(MarkerArray(pose_markers))
 
         self.published_poses_max_id = len(pose_list) - 1
+
+    def publish_goal_xy(self, goal_xy: np.ndarray):
+        """Publish a star shape at the given location."""
+        x, y = goal_xy.squeeze()
+        scale = 1.0
+        m = Marker()
+        m.header = header_map_frame_now()
+        m.ns = "goal_xy"
+        m.id = 0
+        m.type = Marker.LINE_STRIP
+        m.action = Marker.ADD
+
+        # Set the scale (applies to the width of the lines)
+        m.scale.x = 0.1 * scale
+
+        # Set the color
+        m.color = ColorRGBA(145 / 255, 1.0, 0.0, 1.0)
+
+        # Star points relative to the center
+        star_points = [
+            (0.0, 0.5),
+            (0.2, 0.2),
+            (0.5, 0.2),
+            (0.3, 0.0),
+            (0.4, -0.4),
+            (0.0, -0.2),
+            (-0.4, -0.4),
+            (-0.3, 0.0),
+            (-0.5, 0.2),
+            (-0.2, 0.2),
+            (0.0, 0.5),
+        ]
+
+        m.points = [Point(x + px * scale, y + py * scale, 0) for px, py in star_points]
+
+        self.goal_xy_pub.publish(m)
 
 
 def pose3D_to_pose(p: Pose3D):
