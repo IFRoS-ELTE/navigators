@@ -39,6 +39,7 @@ POMONA = "pomona"
 SILVANUS = "silvanus"
 
 MODE = POMONA
+# MODE = SILVANUS
 
 if MODE == POMONA:
     # For Pomona
@@ -57,7 +58,7 @@ else:
         ]
     )
     ANGLE_CORRECTION = np.pi / 2
-    W_MAX = 0.1
+    W_MAX = 0.3
 
 
 def correct_imu(raw):
@@ -203,9 +204,9 @@ class Robot:
             return
 
         angular_vel = self.k_angular * angle_diff
-        fwd_vel = 0
+        fwd_vel = 0.3
 
-        if abs(angle_diff) < np.deg2rad(6):
+        if abs(angle_diff) < np.deg2rad(10):
             fwd_vel = self.k_linear * distance
 
         self.vel_handler.publish_vel(v=fwd_vel, w=angular_vel)
@@ -328,15 +329,37 @@ class AvgImuMagReceiver:
 if __name__ == "__main__":
     rospy.init_node("basic")
 
+    # targets = [
+    #     # (47.4311503, 19.0553650),
+    #     # (47.4772108, 19.1360045),
+    #     # (47.6916700, 19.0783735),
+    #     # (47.4425020, 18.2609145),
+    #     (47.4738730, 19.0580338),  # Near fence
+    #     (47.4740833, 19.0579239),  # Near entrance
+    #     # (47.473820, 19.057358)  # mock
+    # ]
+
+    # Green area
+    # targets = [
+    #     (47.473795, 19.061668),
+    #     (47.473586, 19.061892),
+    #     (47.473659, 19.062236),
+    #     (47.473803, 19.062184),
+    # ]
+
     targets = [
-        # (47.4311503, 19.0553650),
-        # (47.4772108, 19.1360045),
-        # (47.6916700, 19.0783735),
-        # (47.4425020, 18.2609145),
-        (47.4738730, 19.0580338),  # Near fence
-        (47.4740833, 19.0579239),  # Near entrance
-        # (47.473820, 19.057358)  # mock
-    ]
+        (47.47378759, 19.0619692),
+        (47.473641, 19.0620519),
+        (47.4736415, 19.0622771),
+        (47.47379245, 19.0621895),
+    ] * 10
+
+    # targets = [
+    #     (47.4736596, 19.0619257),
+    #     (47.4738172, 19.0619063),
+    #     (47.4736301, 19.06197079),
+    #     (47.4737228, 19.062226),
+    # ] * 10
 
     r = Robot(k_linear=1, k_angular=1, goal_threshold_m=3)
 
