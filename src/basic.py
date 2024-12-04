@@ -6,9 +6,10 @@ from collections import deque
 import cv2
 import numpy as np
 import rospy
-from geometry_msgs.msg import PoseStamped, Twist, Vector3Stamped
+from geometry_msgs.msg import Twist, Vector3Stamped
 from rospy import Publisher
 from sensor_msgs.msg import CompressedImage, NavSatFix, PointCloud2
+from std_msgs.msg import String
 from utils import pcl_ops
 from utils.common import (
     DEG,
@@ -32,14 +33,13 @@ from utils.rviz_publisher import RVizPublisher
 
 # roslaunch realsense2_camera rs_camera.launch
 
-IMG_TOPIC = "/camera/color/image_raw/compressed"
 
 MAGNETIC_DECLINATION = np.deg2rad(5.78)
 POMONA = "pomona"
 SILVANUS = "silvanus"
 
-MODE = POMONA
-# MODE = SILVANUS
+# MODE = POMONA
+MODE = SILVANUS
 
 if MODE == POMONA:
     # For Pomona
@@ -121,26 +121,19 @@ class Robot:
         self.img_folder = os.path.join(get_debug_folder(), "imgs")
         os.makedirs(self.img_folder, exist_ok=True)
 
-        self.last_image = None
-
         if MODE == POMONA:
             rospy.Subscriber("/velodyne_points", PointCloud2, self.pointcloud_callback)
 
-        rospy.Subscriber(IMG_TOPIC, CompressedImage, self.img_callback)
+        rospy.Subscriber("/sent_image", CompressedImage, self.get_img_callback)
+        self.send_image_pub = Publisher("/send_image", String, queue_size=1)
 
         self.control_timer = rospy.Timer(rospy.Duration(0.5), self.control_towards_goal)
 
-    def img_callback(self, img: CompressedImage):
+    def get_img_callback(self, img: CompressedImage):
         np_arr = np.frombuffer(img.data, np.uint8)
-        self.last_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-    def save_latest_image(self, goal: GPSLocation):
-        if self.last_image is None:
-            print("No image available.")
-            return
-
+        received_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         filename = f"{int(rospy.Time.now().to_sec())}_{goal}.jpg"
-        cv2.imwrite(os.path.join(self.img_folder, filename), self.last_image)
+        cv2.imwrite(os.path.join(self.img_folder, filename), received_img)
         print("Saved image to", filename)
 
     def pointcloud_callback(self, pc: PointCloud2):
@@ -199,7 +192,7 @@ class Robot:
         if distance < self.goal_threshold:
             # if abs(angle_diff) < np.deg2rad(3):
             print("Goal has been reached.")
-            self.save_latest_image(self.goal)
+            self.send_image_pub.publish("I want an image NOW!!")
             self.goal = None
             return
 
@@ -329,15 +322,20 @@ class AvgImuMagReceiver:
 if __name__ == "__main__":
     rospy.init_node("basic")
 
-    # targets = [
-    #     # (47.4311503, 19.0553650),
-    #     # (47.4772108, 19.1360045),
-    #     # (47.6916700, 19.0783735),
-    #     # (47.4425020, 18.2609145),
-    #     (47.4738730, 19.0580338),  # Near fence
-    #     (47.4740833, 19.0579239),  # Near entrance
-    #     # (47.473820, 19.057358)  # mock
-    # ]
+    targets = [
+        # (47.4311503, 19.0553650),
+        # (47.4772108, 19.1360045),
+        # (47.6916700, 19.0783735),
+        # (47.4425020, 18.2609145),
+        (47.4738730, 19.0580338),  # Near fence
+        (47.4740833, 19.0579239),  # Near entrance
+        # (47.473820, 19.057358)  # mock
+    ]
+
+    targets = [
+        (47.4739076, 19.0579875),  # Near fence...
+        (47.4740616, 19.0579337),  # Near entrance
+    ] * 3
 
     # Green area
     # targets = [
@@ -347,12 +345,12 @@ if __name__ == "__main__":
     #     (47.473803, 19.062184),
     # ]
 
-    targets = [
-        (47.47378759, 19.0619692),
-        (47.473641, 19.0620519),
-        (47.4736415, 19.0622771),
-        (47.47379245, 19.0621895),
-    ] * 10
+    # targets = [
+    #     (47.47378759, 19.0619692),
+    #     (47.473641, 19.0620519),
+    #     (47.4736415, 19.0622771),
+    #     (47.47379245, 19.0621895),
+    # ] * 10
 
     # targets = [
     #     (47.4736596, 19.0619257),
