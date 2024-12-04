@@ -18,6 +18,8 @@ POSE_TOPIC = "/pose"
 ODOM_TOPIC = "/odom"
 YAW_EAST_TOPIC = "/yaw_east"
 TWIST_TOPIC = "/cmd_vel"
+IMG_TOPIC = "/camera/color/image_raw/compressed"
+
 
 MAP_FRAME = "map"
 
