@@ -4,7 +4,8 @@ import rospy
 from rospy import Publisher
 from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import String
-from utils.common import IMG_TOPIC
+
+IMG_TOPIC = "/camera/color/image_raw/compressed"
 
 
 class RobotImage:
@@ -16,6 +17,7 @@ class RobotImage:
         self.image_pub = Publisher("/sent_image", CompressedImage, queue_size=1)
 
     def img_callback(self, img: CompressedImage):
+        print("Got image!")
         self.image = img
 
     def want_image_callback(self, msg: String):

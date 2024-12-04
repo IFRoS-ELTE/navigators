@@ -6,10 +6,10 @@ from collections import deque
 import cv2
 import numpy as np
 import rospy
-from geometry_msgs.msg import PoseStamped, Twist, Vector3Stamped
-from std_msgs.msg import String
+from geometry_msgs.msg import Twist, Vector3Stamped
 from rospy import Publisher
 from sensor_msgs.msg import CompressedImage, NavSatFix, PointCloud2
+from std_msgs.msg import String
 from utils import pcl_ops
 from utils.common import (
     DEG,
@@ -38,8 +38,8 @@ MAGNETIC_DECLINATION = np.deg2rad(5.78)
 POMONA = "pomona"
 SILVANUS = "silvanus"
 
-MODE = POMONA
-# MODE = SILVANUS
+# MODE = POMONA
+MODE = SILVANUS
 
 if MODE == POMONA:
     # For Pomona
@@ -322,15 +322,20 @@ class AvgImuMagReceiver:
 if __name__ == "__main__":
     rospy.init_node("basic")
 
-    # targets = [
-    #     # (47.4311503, 19.0553650),
-    #     # (47.4772108, 19.1360045),
-    #     # (47.6916700, 19.0783735),
-    #     # (47.4425020, 18.2609145),
-    #     (47.4738730, 19.0580338),  # Near fence
-    #     (47.4740833, 19.0579239),  # Near entrance
-    #     # (47.473820, 19.057358)  # mock
-    # ]
+    targets = [
+        # (47.4311503, 19.0553650),
+        # (47.4772108, 19.1360045),
+        # (47.6916700, 19.0783735),
+        # (47.4425020, 18.2609145),
+        (47.4738730, 19.0580338),  # Near fence
+        (47.4740833, 19.0579239),  # Near entrance
+        # (47.473820, 19.057358)  # mock
+    ]
+
+    targets = [
+        (47.4739076, 19.0579875),  # Near fence...
+        (47.4740616, 19.0579337),  # Near entrance
+    ] * 3
 
     # Green area
     # targets = [
@@ -340,12 +345,12 @@ if __name__ == "__main__":
     #     (47.473803, 19.062184),
     # ]
 
-    targets = [
-        (47.47378759, 19.0619692),
-        (47.473641, 19.0620519),
-        (47.4736415, 19.0622771),
-        (47.47379245, 19.0621895),
-    ] * 10
+    # targets = [
+    #     (47.47378759, 19.0619692),
+    #     (47.473641, 19.0620519),
+    #     (47.4736415, 19.0622771),
+    #     (47.47379245, 19.0621895),
+    # ] * 10
 
     # targets = [
     #     (47.4736596, 19.0619257),
