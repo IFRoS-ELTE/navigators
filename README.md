@@ -6,7 +6,9 @@ The objective of this project is to enable the robot to autonomously navigate to
 
 Created by:  
 **Liviu Florescu**
+
 **Lisa Paul Magoti**
+
 **Selin Yavuz**
 
 ---
