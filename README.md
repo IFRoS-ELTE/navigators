@@ -54,7 +54,7 @@ Ensure you have ROS installed and configured on the robot.
 
 1. **Clone the Repository**  
    ```bash  
-   git clone https://github.com/your-repo/gps_navigation_project.git  
+   git clone https://github.com/IFRoS-ELTE/navigators.git
 
     ```
 3. **Build the Workspace**  
@@ -64,7 +64,7 @@ Ensure you have ROS installed and configured on the robot.
 
 4. **Connect CANBUS**  
     ```bash  
-    sudo ip link set can0 up type can bitrate 500000
+    rosrun scout_bringup setup_can2usb.bash
     ```
 
 5. **Run the Launch File**  
