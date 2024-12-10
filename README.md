@@ -83,9 +83,25 @@ Ensure you have ROS installed and configured on the robot.
 
     ```
 ---
+## Running the Code 
 
-## ADD IN PICS FROM RVIZ ROBOT ETC.
+"basic.py" has the overall code of the project. With this script, we are navigating between two GPS waypoints in an outdoor setting, and capture an image with the camera. A visualization of the Rviz can be found below.
+
+## Visuals from the robot
+
 ![Robot Picture](robot_pic.jpeg)
+![Robot Picture 2](pic_2.jpeg)
+![Robot Picture 3](pic_3.jpeg)
+
+# Future Improvements
+
+Below are some of the potential improvements and features that could be added to the project in the future:
+
+| **To-Do**                               | **Description**                                                                                  | **Priority**   |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------|----------------|
+| **Dynamic Path Planning**               | Improve path planning to adapt dynamically to changes in the environment (e.g., moving obstacles). | Medium         |
+| **Obstacle Detection**                  | Implement obstacle detection to enable the robot to avoid collisions while navigating.            | High           |
+| **Localization and Mapping Refinement** | Improve localization accuracy and SLAM algorithm for better map generation and robot positioning. | Medium         |
 
 ## Troubleshooting  
 
