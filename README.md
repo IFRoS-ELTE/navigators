@@ -18,7 +18,7 @@ Created by:
 | **Name**             | **Responsibilities**               |  
 |-----------------------|-------------------------------------|  
 | **Liviu Florescu**       | GPS navigation, IMU integration, and image capture |  
-| **Lisa Paul Magoti**       | Path planning, ??what would you like to add?? |  
+| **Lisa Paul Magoti**       | Controller, image handling |  
 | **Selin Yavuz**       | ROS topics and system architecture, debugging, documentation |  
 
 ---
