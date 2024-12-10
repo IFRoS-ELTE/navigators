@@ -25,27 +25,21 @@ Created by:
 
 ## Architecture  
 
-### Project Overview  
-The navigation system is designed to take GPS coordinates as inputs, convert them to a local coordinate frame, and navigate the robot to these points while adjusting its heading using IMU data. At each waypoint, an image of the surroundings is captured and stored for later use.  
 
-### Components Diagram  
-Here’s a high-level overview of the architecture and components involved:  
+### Project Overview
+The navigation system is designed to autonomously navigate a robot using GPS-defined waypoints. GPS coordinates are converted into a local coordinate frame for real-time navigation. The robot also captures images at each waypoint for later use.
 
-**System Architecture**
+Key features include:
 
-- **GPS Navigation**  
-  The robot converts GPS waypoints to a local frame using a transformation pipeline. It continuously monitors its position relative to the target waypoint.  
+- **GPS Navigation**: 
+  The system converts GPS coordinates to a local coordinate frame to plan the robot’s movements.
+- **IMU Integration**: 
+  IMU data provides heading corrections and orientation information for precise navigation.
+- **Image Capture**: 
+  The robot captures images upon reaching each waypoint using an onboard camera.
+- **Real-time Visualization**: 
+  RViz is used to visualize the robot's path, current position, and navigation progress.
 
-- **IMU Data Integration**  
-  IMU data is used for heading correction and navigation. Calibration offsets are accounted for to ensure reliable performance.  
-
-- **Image Capture**  
-  At each waypoint, the robot triggers its onboard camera to capture and save an image.  
-
-- **Visualization**  
-  RViz is used for real-time monitoring of the robot’s path, waypoints, and navigation progress.  
-
----
 
 ## Setup  
 
@@ -104,6 +98,13 @@ Below are some of the potential improvements and features that could be added to
 | **Localization and Mapping Refinement** | Improve localization accuracy and SLAM algorithm for better map generation and robot positioning. | Medium         |
 
 ## Troubleshooting  
+- **Robot Not Reaching Waypoints**
+If the robot seems unable to reach the waypoints, check the GPS signal and verify the IMU calibration. It might be necessary to recalibrate the IMU and ensure a stable GPS connection.
+
+- **Camera Issues**
+If the robot is unable to capture images at waypoints, check the camera connection and confirm the camera launch file is running without errors.
+
+
 
 
 - **Support**  
