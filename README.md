@@ -84,8 +84,8 @@ Ensure you have ROS installed and configured on the robot.
 ## Visuals from the robot
 
 ![Robot Picture](robot_pic.jpeg)
-![Robot Picture 2](pic_2.jpeg)
-![Robot Picture 3](pic_3.jpeg)
+<img src="pic_2.jpeg" alt="Robot Picture 2" width="300"/>
+<img src="pic_3.jpeg" alt="Robot Picture 3" width="300"/>
 
 # Future Improvements
 
@@ -111,7 +111,6 @@ If the robot is unable to capture images at waypoints, check the camera connecti
   For further assistance, please open an issue on the GitHub repository or contact the project maintainers.
 
 ---
-
 
 ## Acknowledgments  
 
